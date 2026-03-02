@@ -144,6 +144,7 @@ class AirdpCore:
             proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                stdin=subprocess.DEVNULL,
                 text=True, encoding="utf-8",
                 shell=(sys.platform == "win32"),
                 env=run_env
@@ -225,11 +226,12 @@ class AirdpCore:
         session_id = self.load_session_id(role) if role else None
 
         if ai_name == "gemini":
+            base_cmd = ["gemini", "--approval-mode", "yolo"]
             if session_id:
                 print(f"  [Session] Gemini resume: {session_id}")
-                return ["gemini", "-r", session_id, "-p", prompt, "-y"]
+                return base_cmd + ["-r", session_id, "-p", prompt]
             else:
-                return ["gemini", "-p", prompt, "-y"]
+                return base_cmd + ["-p", prompt]
 
         elif ai_name == "claude":
             claude_base = ["claude", "-p", prompt,
@@ -277,7 +279,7 @@ def invoke_ai_simple(ai_name, prompt):
     stdout テキストをそのまま返す。失敗時は空文字列。"""
     print(f"  [AI: {ai_name}] Invoking...")
     try:
-        cmd = [ai_name, "-p", prompt, "-y"]
+        cmd = [ai_name, "-p", prompt, "--approval-mode", "yolo"]
         run_env = os.environ.copy()
         if ai_name == "claude":
             for key in ["CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_VERSION"]:
@@ -290,6 +292,7 @@ def invoke_ai_simple(ai_name, prompt):
         proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            stdin=subprocess.DEVNULL,
             text=True, encoding="utf-8",
             shell=(sys.platform == "win32"),
             env=run_env

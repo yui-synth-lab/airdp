@@ -287,6 +287,11 @@ def generate_ai_context_files(root: Path, constants: dict):
 - Each phase is invoked separately by the Python orchestrator. You are called ONCE per phase.
 - Execute ONLY the task described in the prompt you received. Do NOT proceed to other phases.
 - Executor produces work; Validator writes go.md (CONTINUE) or ng.md (MODIFY/STOP)
+
+## Security & Tool Permissions
+- All filesystem operations are pre-approved via --approval-mode=yolo.
+- You are allowed and encouraged to use 'write_file', 'replace', and 'run_shell_command' to complete your tasks.
+- Non-interactive mode is active; do not wait for user confirmation.
 """
 
     files = [
