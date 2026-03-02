@@ -1,0 +1,8 @@
+**__pycache__**
+.claude/**
+.github/copilot-instructions.md
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.airdp_tmp/**
+**/.sessions/**
