@@ -2,7 +2,6 @@ import os
 import sys
 import uuid
 import json
-import tempfile
 import subprocess
 from pathlib import Path
 from datetime import datetime
@@ -128,20 +127,8 @@ class AirdpCore:
         else:
             self._before_gemini_sessions = set()
 
-        # プロンプトをプロジェクト内の一時ディレクトリに書き出す
-        tmp_dir = self.project_dir / ".airdp_tmp"
-        tmp_dir.mkdir(exist_ok=True)
-        tmp = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".md", encoding="utf-8",
-            delete=False, prefix="airdp_prompt_", dir=tmp_dir
-        )
-        tmp_path = None
         try:
-            tmp.write(prompt)
-            tmp.close()
-            tmp_path = tmp.name
-
-            cmd = self._build_cmd(ai_name, tmp_path, role)
+            cmd = self._build_cmd(ai_name, prompt, role)
             if cmd is None:
                 print(f"  [SKIP] AI backend {ai_name} not implemented.")
                 return ""
@@ -154,21 +141,13 @@ class AirdpCore:
 
             stdout_lines = []
 
-            # Codex はプロンプトを stdin 経由で受け取る
-            stdin_data = prompt if ai_name == "codex" else None
-
             proc = subprocess.Popen(
                 cmd,
-                stdin=subprocess.PIPE if stdin_data else None,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 text=True, encoding="utf-8",
                 shell=(sys.platform == "win32"),
                 env=run_env
             )
-
-            if stdin_data:
-                proc.stdin.write(stdin_data)
-                proc.stdin.close()
 
             # stdout をリアルタイムで表示しながら収集
             for line in proc.stdout:
@@ -239,31 +218,26 @@ class AirdpCore:
         except Exception as e:
             print(f"  [EXCEPTION] Failed to invoke {ai_name}: {e}")
             return ""
-        finally:
-            if tmp_path:
-                try:
-                    os.unlink(tmp_path)
-                except OSError:
-                    pass
 
-    def _build_cmd(self, ai_name, tmp_path, role):
-        """AIバックエンドとセッション状態に応じてコマンドを組み立てる。"""
+    def _build_cmd(self, ai_name, prompt, role):
+        """AIバックエンドとセッション状態に応じてコマンドを組み立てる。
+        プロンプトは文字列として直接 -p に渡す（PS版と同方式）。"""
         session_id = self.load_session_id(role) if role else None
 
         if ai_name == "gemini":
             if session_id:
                 print(f"  [Session] Gemini resume: {session_id}")
-                return ["gemini", "-r", session_id, "-p", f"@{tmp_path}", "-y"]
+                return ["gemini", "-r", session_id, "-p", prompt, "-y"]
             else:
-                return ["gemini", "-p", f"@{tmp_path}", "-y"]
+                return ["gemini", "-p", prompt, "-y"]
 
         elif ai_name == "claude":
-            claude_base = ["claude", "-p", f"@{tmp_path}",
+            claude_base = ["claude", "-p", prompt,
                            "--allowedTools", "Read,Write,Edit,Bash,Glob,Grep",
                            "--permission-mode", "bypassPermissions"]
             if session_id:
                 print(f"  [Session] Claude resume: {session_id}")
-                return ["claude", "--resume", session_id, "-p", f"@{tmp_path}",
+                return ["claude", "--resume", session_id, "-p", prompt,
                         "--allowedTools", "Read,Write,Edit,Bash,Glob,Grep",
                         "--permission-mode", "bypassPermissions"]
             elif role:
@@ -277,26 +251,62 @@ class AirdpCore:
         elif ai_name == "copilot":
             if session_id:
                 print(f"  [Session] Copilot resume: {session_id}")
-                return ["copilot", "--resume", session_id, "-p", f"@{tmp_path}", "--yolo"]
+                return ["copilot", "--resume", session_id, "-p", prompt, "--yolo"]
             elif role:
                 # 新規セッション: UUIDを事前生成して --resume で指定
                 new_sid = str(uuid.uuid4())
                 self._copilot_preset_session_id = new_sid
-                return ["copilot", "--resume", new_sid, "-p", f"@{tmp_path}", "--yolo"]
+                return ["copilot", "--resume", new_sid, "-p", prompt, "--yolo"]
             else:
-                return ["copilot", "-p", f"@{tmp_path}", "--yolo"]
+                return ["copilot", "-p", prompt, "--yolo"]
 
         elif ai_name == "codex":
-            # Codex はプロンプトを stdin から受け取る（@file 記法非対応）
-            # invoke_ai 側で stdin=prompt を渡す必要があるためフラグのみ返す
-            base_flags = ["--dangerously-bypass-approvals-and-sandbox", "--json", "-"]
+            # Codex: PS版同様にプロンプトを positional argument で渡す
+            base_flags = ["--dangerously-bypass-approvals-and-sandbox", "--json"]
             if session_id:
                 print(f"  [Session] Codex resume: {session_id}")
-                return ["codex", "exec", "resume", session_id] + base_flags
+                return ["codex", "exec", "resume", session_id] + base_flags + [prompt]
             else:
-                return ["codex", "exec"] + base_flags
+                return ["codex", "exec"] + base_flags + [prompt]
 
         return None
+
+
+def invoke_ai_simple(ai_name, prompt):
+    """セッション管理・ログなしの最小 AI 呼び出し。airdp_init.py などプロジェクト初期化前に使用する。
+    stdout テキストをそのまま返す。失敗時は空文字列。"""
+    print(f"  [AI: {ai_name}] Invoking...")
+    try:
+        cmd = [ai_name, "-p", prompt, "-y"]
+        run_env = os.environ.copy()
+        if ai_name == "claude":
+            for key in ["CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_VERSION"]:
+                run_env.pop(key, None)
+            cmd = [ai_name, "-p", prompt,
+                   "--allowedTools", "Read,Write,Edit,Bash,Glob,Grep",
+                   "--permission-mode", "bypassPermissions"]
+
+        stdout_lines = []
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, encoding="utf-8",
+            shell=(sys.platform == "win32"),
+            env=run_env
+        )
+        for line in proc.stdout:
+            print(line, end="", flush=True)
+            stdout_lines.append(line)
+        stderr_text = proc.stderr.read()
+        proc.wait()
+
+        if proc.returncode != 0:
+            print(f"  [ERROR] AI call failed (returncode={proc.returncode}): {stderr_text[:200]}")
+            return ""
+        return "".join(stdout_lines)
+    except Exception as e:
+        print(f"  [EXCEPTION] Failed to invoke {ai_name}: {e}")
+        return ""
 
 
 # Singleton-like access

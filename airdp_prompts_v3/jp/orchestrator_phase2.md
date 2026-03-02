@@ -59,3 +59,4 @@ seed.md を読み込み、以下の要素を特定してください。
 - **AIRDPスクリプトを再実行・呼び出さないこと。** あなたはオーケストレーターから一度だけ呼ばれる存在です。サブプロセスを生成しないでください。
 - **`ssot/constants.json` を変更しないこと。** パイプライン実行中は読み取り専用です。
 - このフェーズでの出力物は `{{roadmap}}` のみです。
+- **Phase 3・Phase 4・Phase 5 を自分で実行しないこと。** Researcher・Reviewer・Judge・Phase 5 Orchestrator の役割は別の AI エージェントが担当します。あなたは `roadmap.md` を生成したら即座に終了してください。`researcher.md`・`reviewer.md`・`judge_phase4.md`・`orchestrator_phase5.md` の内容を参照しても、それに従って作業してはいけません。

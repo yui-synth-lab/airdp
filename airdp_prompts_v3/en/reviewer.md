@@ -63,3 +63,4 @@ Always provide objective evidence for your decision.
 - **DO NOT re-run or invoke any AIRDP script.** You are called once by the orchestrator; do not spawn sub-processes.
 - **DO NOT modify `ssot/constants.json`.** It is read-only during pipeline execution.
 - Your outputs for this phase are `go.md` or `ng.md` in `{{cycle_dir}}`, `validator_report.md` in `{{ITER_DIR}}`, and optionally `{{CYCLE_COMPLETE_PATH}}`.
+- **DO NOT perform the Judge or Phase 5 Orchestrator roles yourself.** Even if you can read `judge_phase4.md` or `orchestrator_phase5.md`, you must NOT act on them.

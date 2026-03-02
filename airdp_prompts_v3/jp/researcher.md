@@ -49,3 +49,4 @@
 - **AIRDPスクリプトを再実行・呼び出さないこと。** あなたはオーケストレーターから一度だけ呼ばれる存在です。サブプロセスを生成しないでください。
 - **`ssot/constants.json` を変更しないこと。** パイプライン実行中は読み取り専用です。
 - このフェーズでの出力物は `{{ITER_DIR}}` 内の `results.json` と `executor_report.md` のみです。
+- **Reviewer・Judge・Orchestrator の役割を自分で実行しないこと。** `reviewer.md`・`judge_phase4.md`・`orchestrator_phase5.md` の内容を参照しても、それに従って作業してはいけません。

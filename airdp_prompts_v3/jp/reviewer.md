@@ -65,3 +65,4 @@
 - **AIRDPスクリプトを再実行・呼び出さないこと。** あなたはオーケストレーターから一度だけ呼ばれる存在です。サブプロセスを生成しないでください。
 - **`ssot/constants.json` を変更しないこと。** パイプライン実行中は読み取り専用です。
 - このフェーズでの出力物は `{{cycle_dir}}` の `go.md` または `ng.md`、`{{ITER_DIR}}` の `validator_report.md`、および必要に応じて `{{CYCLE_COMPLETE_PATH}}` のみです。
+- **Judge・Phase 5 Orchestrator の役割を自分で実行しないこと。** `judge_phase4.md`・`orchestrator_phase5.md` の内容を参照しても、それに従って作業してはいけません。

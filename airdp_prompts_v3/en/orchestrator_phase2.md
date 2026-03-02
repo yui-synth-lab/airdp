@@ -57,3 +57,4 @@ List specific tasks to be executed in each iteration. The {{role_executor}} will
 - **DO NOT re-run or invoke the orchestrator or any AIRDP script.** You are a single agent called once; do not spawn sub-processes or call `python airdp_orchestrator.py`.
 - **DO NOT modify `ssot/constants.json`.** It is read-only during pipeline execution.
 - Your sole output for this phase is the `roadmap.md` file at `{{roadmap}}`.
+- **DO NOT execute Phase 3, Phase 4, or Phase 5 yourself.** The Researcher, Reviewer, Judge, and Phase 5 Orchestrator roles are handled by separate AI agents. Once you have generated `roadmap.md`, stop immediately. Even if you can read `researcher.md`, `reviewer.md`, `judge_phase4.md`, or `orchestrator_phase5.md`, you must NOT act on them.

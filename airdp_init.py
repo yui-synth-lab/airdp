@@ -1,8 +1,8 @@
 import os
 import json
 import sys
-import subprocess
 from pathlib import Path
+from airdp_core import invoke_ai_simple
 
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -23,19 +23,10 @@ def ask(question, options=None, default=None):
         return ans if ans else default
 
 def invoke_ai_init(ai_name, prompt):
-    """初期化用に一時的にAIを呼び出す"""
+    """初期化用 AI 呼び出し。invoke_ai_simple を使い JSON を抽出して返す。"""
     print(f"\n[AI: {ai_name}] プロジェクトの性質を分析中...")
-    # 一時ファイルにプロンプトを書き出す
-    temp_file = Path(".airdp_init_prompt.txt")
-    temp_file.write_text(prompt, encoding="utf-8")
-    
     try:
-        # 指定された AI CLI を呼び出し
-        # JSON形式での出力を強制する
-        cmd = [ai_name, "-p", f"Analyze the project and output ONLY JSON. Use the prompt from {temp_file}", "-y"]
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", shell=True)
-        # JSON部分だけを抽出
-        output = result.stdout
+        output = invoke_ai_simple(ai_name, prompt)
         if "{" in output:
             json_str = output[output.find("{"):output.rfind("}")+1]
             return json.loads(json_str)
@@ -43,9 +34,6 @@ def invoke_ai_init(ai_name, prompt):
     except Exception as e:
         print(f"[ERROR] AI分析に失敗しました ({ai_name}): {e}")
         return None
-    finally:
-        if temp_file.exists():
-            temp_file.unlink()
 
 def main():
     import argparse
@@ -296,7 +284,8 @@ def generate_ai_context_files(root: Path, constants: dict):
 - Max iterations per objective : {lim.get('max_iterations_per_objective', 5)}
 - Max objectives per cycle     : {lim.get('max_objectives_per_cycle', 3)}
 - NO hardcoding: all constants must come from ssot/constants.json
-- Phase 3 is fully autonomous: no human intervention
+- Each phase is invoked separately by the Python orchestrator. You are called ONCE per phase.
+- Execute ONLY the task described in the prompt you received. Do NOT proceed to other phases.
 - Executor produces work; Validator writes go.md (CONTINUE) or ng.md (MODIFY/STOP)
 """
 

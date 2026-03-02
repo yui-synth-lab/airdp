@@ -47,3 +47,4 @@ Create `executor_report.md` describing the summary of work and compliance with {
 - **DO NOT re-run or invoke any AIRDP script.** You are called once by the orchestrator; do not spawn sub-processes.
 - **DO NOT modify `ssot/constants.json`.** It is read-only during pipeline execution.
 - Your outputs for this phase are `results.json` and `executor_report.md` inside `{{ITER_DIR}}`.
+- **DO NOT perform the Reviewer, Judge, or Orchestrator roles yourself.** Even if you can read `reviewer.md`, `judge_phase4.md`, or `orchestrator_phase5.md`, you must NOT act on them.

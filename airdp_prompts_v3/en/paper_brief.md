@@ -21,6 +21,7 @@ Based on the accumulated cycle results, create a writing brief (brief.md) for th
    - Accumulated results and confirmed findings
    - Rules and constants added to the SSoT
    - Unresolved issues and directions for the next step
+3. If any cycle report contains an "## Iteration Deliverables Index" table, **read every deliverable file path listed in that table**. This table is the index to actual iteration outputs. The outline in brief Section 3 must be based on the **actual content of each iter file**, not on the cycle_report summary alone.
 
 ### Step 2: Create brief.md
 
