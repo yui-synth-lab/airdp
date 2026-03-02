@@ -71,7 +71,7 @@ def main():
     # 2. AIによるプロファイリング（メタプロンプト）
     meta_prompt = f"""
     You are a Project Architect for the AIRDP framework.
-    Task: Design the optimal Lexicon (terminology) and constraints for this project.
+    Task: Design the optimal Lexicon (terminology), constraints, and domain-specific quality rules for this project.
     Project Description: {description}
     Language: {lang}
 
@@ -85,7 +85,25 @@ def main():
         "ssot_name": "What the source of truth is called (e.g., 'Chronology', 'Tech Specs')"
       }},
     - "suggested_success_criteria": ["Criterion 1", "Criterion 2"],
-    - "suggested_exit_criteria": ["When to stop 1", "When to stop 2"]
+    - "suggested_exit_criteria": ["When to stop 1", "When to stop 2"],
+    - "domain_quality_rules": {{
+        "researcher_prohibitions": [
+          "List 3-5 things the Executor must NEVER do in this domain.",
+          "Be specific and detectable (e.g., 'Using modern vocabulary in historical fiction', 'Asserting unverified facts as truth')."
+        ],
+        "reviewer_checklist": [
+          "List 5-8 yes/no checklist items the Validator uses to judge deliverables.",
+          "Each item must be answerable with yes or no (e.g., 'Does the text contain anachronistic language?')."
+        ],
+        "judge_accept_criteria": [
+          "List 3-5 binary conditions ALL of which must be true for ACCEPT.",
+          "Be concrete and verifiable (e.g., 'All reviewer checklist items passed', 'No contradiction with SSoT')."
+        ],
+        "common_failure_patterns": [
+          "List 3-5 domain-specific failure patterns that look correct but are actually wrong.",
+          "Examples: 'Mixing modern idioms into Edo-period dialogue', 'Circular reasoning with synthetic data', 'Reporting untested code as working'."
+        ]
+      }}
     """
     
     config = invoke_ai_init(args.ai, meta_prompt)
@@ -102,7 +120,26 @@ def main():
                 "ssot_name": "Source of Truth"
             },
             "suggested_success_criteria": ["Requirement satisfied"],
-            "suggested_exit_criteria": ["Logical failure"]
+            "suggested_exit_criteria": ["Logical failure"],
+            "domain_quality_rules": {
+                "researcher_prohibitions": [
+                    "SSoT に定義されていない事実の断定的記述",
+                    "ロードマップに記載のないタスクの自己判断による追加"
+                ],
+                "reviewer_checklist": [
+                    "SSoT の制約と成果物が矛盾していないか",
+                    "ロードマップのタスクが完全に完了しているか",
+                    "根拠のない主張が含まれていないか"
+                ],
+                "judge_accept_criteria": [
+                    "全 Reviewer チェック項目をクリアしていること",
+                    "SSoT との矛盾がゼロであること"
+                ],
+                "common_failure_patterns": [
+                    "表面的には完成しているが検証が不十分な成果物",
+                    "指摘への対応が部分的でありながら完了と報告する"
+                ]
+            }
         }
 
     # 3. ディレクトリ作成
@@ -131,10 +168,30 @@ def main():
             "max_objectives_per_cycle": 3,
             "max_iterations_per_objective": 10,
             "consecutive_stop_limit": 2
-        }
+        },
+        "domain_quality_rules": config["domain_quality_rules"]
     }
     with open(root / "ssot" / "constants.json", "w", encoding="utf-8") as f:
         json.dump(constants, f, indent=2, ensure_ascii=False)
+
+    # domain_quality_rules の確認ゲート
+    print("\n[確認] 生成されたドメイン品質ルールを確認してください:")
+    print(json.dumps(config["domain_quality_rules"], indent=2, ensure_ascii=False))
+    print("\n  [ok]   → このまま続行")
+    print("  [edit] → constants.json を手動編集後に続行")
+    while True:
+        gate = input("\n  確認 [ok/edit]: ").strip().lower()
+        if gate == "ok":
+            break
+        elif gate == "edit":
+            input("  ssot/constants.json の domain_quality_rules を編集後、Enter を押してください。")
+            # 編集後の値を再読み込み
+            with open(root / "ssot" / "constants.json", "r", encoding="utf-8") as f:
+                constants = json.load(f)
+            config["domain_quality_rules"] = constants.get("domain_quality_rules", {})
+            break
+        else:
+            print("  ok または edit を入力してください。")
 
     # 5. 初期 seed.md の作成（AIの提案を含む）
     success_str = "\n".join([f"- {c}" for c in config.get("suggested_success_criteria", [])])

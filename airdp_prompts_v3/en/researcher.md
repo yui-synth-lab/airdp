@@ -33,6 +33,14 @@ Create `executor_report.md` describing the summary of work and compliance with {
 - Unauthorized use of external data.
 - Self-evaluation of your own output (Subjective evaluation is the role of {{role_validator}}).
 
+### Domain-Specific Prohibitions (auto-generated from SSoT)
+
+{{DOMAIN_PROHIBITIONS}}
+
+### Common Failure Patterns in This Domain (for reference)
+
+{{FAILURE_PATTERNS}}
+
 ## ABSOLUTE PROHIBITIONS
 
 - **DO NOT edit, modify, or rewrite any AIRDP framework files** (`airdp_*.py`, `airdp_prompts_v3/**`, `ssot/constants.json`, `ssot/project_ssot_template.py`).

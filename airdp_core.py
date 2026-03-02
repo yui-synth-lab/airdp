@@ -49,12 +49,26 @@ class AirdpCore:
         with open(template_path, "r", encoding="utf-8") as f:
             content = f.read()
 
+        dqr = self.constants.get("domain_quality_rules", {})
+
         vars = {
             "PROJECT_NAME": self.constants.get("project_info", {}).get("name", "AIRDP Project"),
             "DOMAIN": self.constants.get("project_info", {}).get("domain", "General"),
             "GOAL": self.constants.get("project_info", {}).get("goal", ""),
             **self.constants.get("lexicon", {}),
             **self.paths,
+            "DOMAIN_PROHIBITIONS": "\n".join(
+                f"- {p}" for p in dqr.get("researcher_prohibitions", [])
+            ) or "（ドメイン固有の禁止事項は未設定）",
+            "DOMAIN_CHECKLIST": "\n".join(
+                f"□ {c}" for c in dqr.get("reviewer_checklist", [])
+            ) or "（ドメイン固有のチェックリストは未設定）",
+            "JUDGE_ACCEPT_CRITERIA": "\n".join(
+                f"- {c}" for c in dqr.get("judge_accept_criteria", [])
+            ) or "（ドメイン固有の ACCEPT 条件は未設定）",
+            "FAILURE_PATTERNS": "\n".join(
+                f"- {p}" for p in dqr.get("common_failure_patterns", [])
+            ) or "（ドメイン固有の失敗パターンは未設定）",
             **(extra_vars or {})
         }
 

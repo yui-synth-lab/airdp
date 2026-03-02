@@ -14,6 +14,12 @@ For each {{unit_objective}}, decide one of the following:
 2. **REJECT**: Exit criteria met, or it is clear that the objective is unreachable.
 3. **MODIFY**: Objective not yet met, but there is potential to achieve it through revision.
 
+### Domain-Specific ACCEPT Criteria (auto-generated from SSoT)
+
+All of the following conditions must be satisfied. If even one is unmet, ACCEPT is not permitted.
+
+{{JUDGE_ACCEPT_CRITERIA}}
+
 ---
 
 ## Output

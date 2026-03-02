@@ -35,6 +35,14 @@
 - 客観的根拠のない主張。
 - 自身の成果に対する「完璧です」といった主観的な自己評価（評価は {{role_validator}} の役割です）。
 
+### ドメイン固有の禁止事項（SSoT より自動生成）
+
+{{DOMAIN_PROHIBITIONS}}
+
+### このドメインで起きやすい失敗パターン（参考）
+
+{{FAILURE_PATTERNS}}
+
 ## 絶対禁止事項
 
 - **AIRDPフレームワークのファイルを編集・改変しないこと** (`airdp_*.py`、`airdp_prompts_v3/**`、`ssot/constants.json`、`ssot/project_ssot_template.py`)。
