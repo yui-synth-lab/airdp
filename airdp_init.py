@@ -22,9 +22,10 @@ def ask(question, options=None, default=None):
         ans = input(f"Input [{'default:'+str(default) if default else ''}]: ").strip()
         return ans if ans else default
 
-def invoke_ai_init(ai_name, prompt):
+def invoke_ai_init(ai_name, prompt, is_jp=False):
     """初期化用 AI 呼び出し。invoke_ai_simple を使い JSON を抽出して返す。"""
-    print(f"\n[AI: {ai_name}] プロジェクトの性質を分析中...")
+    msg = "プロジェクトの性質を分析中..." if is_jp else "Analyzing project profile..."
+    print(f"\n[AI: {ai_name}] {msg}")
     try:
         output = invoke_ai_simple(ai_name, prompt)
         if "{" in output:
@@ -32,7 +33,7 @@ def invoke_ai_init(ai_name, prompt):
             return json.loads(json_str)
         return None
     except Exception as e:
-        print(f"[ERROR] AI分析に失敗しました ({ai_name}): {e}")
+        print(f"[ERROR] AI analysis failed ({ai_name}): {e}")
         return None
 
 def main():
@@ -54,7 +55,8 @@ def main():
 
     # 1. 基本ヒアリング
     project_name = ask("Project Name", default="my_universal_project")
-    description = ask("Description / 目標 (例: 江戸時代の歴史小説を書きたい、ReactでToDoアプリを作りたい等)")
+    desc_prompt = "目標・説明 (例: 江戸時代の歴史小説を書きたい、ReactでToDoアプリを作りたい等)" if is_jp else "Goal / Description (e.g. Write a historical novel set in Edo-period Japan, Build a React Todo app)"
+    description = ask(desc_prompt)
 
     # 2. AIによるプロファイリング（メタプロンプト）
     meta_prompt = f"""
@@ -95,41 +97,75 @@ def main():
       }}
     """
     
-    config = invoke_ai_init(args.ai, meta_prompt)
-    
+    config = invoke_ai_init(args.ai, meta_prompt, is_jp=is_jp)
+
     if not config:
-        print("[WARNING] AI分析に失敗したため、デフォルト設定を使用します。")
-        config = {
-            "domain": "General",
-            "lexicon": {
-                "role_executor": "Executor",
-                "role_validator": "Validator",
-                "unit_objective": "Objective",
-                "unit_criteria": "Quality Metrics",
-                "ssot_name": "Source of Truth"
-            },
-            "suggested_success_criteria": ["Requirement satisfied"],
-            "suggested_exit_criteria": ["Logical failure"],
-            "domain_quality_rules": {
-                "researcher_prohibitions": [
-                    "SSoT に定義されていない事実の断定的記述",
-                    "ロードマップに記載のないタスクの自己判断による追加"
-                ],
-                "reviewer_checklist": [
-                    "SSoT の制約と成果物が矛盾していないか",
-                    "ロードマップのタスクが完全に完了しているか",
-                    "根拠のない主張が含まれていないか"
-                ],
-                "judge_accept_criteria": [
-                    "全 Reviewer チェック項目をクリアしていること",
-                    "SSoT との矛盾がゼロであること"
-                ],
-                "common_failure_patterns": [
-                    "表面的には完成しているが検証が不十分な成果物",
-                    "指摘への対応が部分的でありながら完了と報告する"
-                ]
+        warn = "AI分析に失敗したため、デフォルト設定を使用します。" if is_jp else "AI analysis failed. Using default configuration."
+        print(f"[WARNING] {warn}")
+        if is_jp:
+            config = {
+                "domain": "General",
+                "lexicon": {
+                    "role_executor": "Executor",
+                    "role_validator": "Validator",
+                    "unit_objective": "Objective",
+                    "unit_criteria": "Quality Metrics",
+                    "ssot_name": "Source of Truth"
+                },
+                "suggested_success_criteria": ["要件を満たしていること"],
+                "suggested_exit_criteria": ["論理的な失敗"],
+                "domain_quality_rules": {
+                    "researcher_prohibitions": [
+                        "SSoT に定義されていない事実の断定的記述",
+                        "ロードマップに記載のないタスクの自己判断による追加"
+                    ],
+                    "reviewer_checklist": [
+                        "SSoT の制約と成果物が矛盾していないか",
+                        "ロードマップのタスクが完全に完了しているか",
+                        "根拠のない主張が含まれていないか"
+                    ],
+                    "judge_accept_criteria": [
+                        "全 Reviewer チェック項目をクリアしていること",
+                        "SSoT との矛盾がゼロであること"
+                    ],
+                    "common_failure_patterns": [
+                        "表面的には完成しているが検証が不十分な成果物",
+                        "指摘への対応が部分的でありながら完了と報告する"
+                    ]
+                }
             }
-        }
+        else:
+            config = {
+                "domain": "General",
+                "lexicon": {
+                    "role_executor": "Executor",
+                    "role_validator": "Validator",
+                    "unit_objective": "Objective",
+                    "unit_criteria": "Quality Metrics",
+                    "ssot_name": "Source of Truth"
+                },
+                "suggested_success_criteria": ["Requirement satisfied"],
+                "suggested_exit_criteria": ["Logical failure"],
+                "domain_quality_rules": {
+                    "researcher_prohibitions": [
+                        "Asserting facts not defined in the SSoT",
+                        "Adding tasks not listed in the roadmap without approval"
+                    ],
+                    "reviewer_checklist": [
+                        "Does the deliverable contradict any SSoT constraint?",
+                        "Are all roadmap tasks fully completed?",
+                        "Are there any unsubstantiated claims?"
+                    ],
+                    "judge_accept_criteria": [
+                        "All reviewer checklist items passed",
+                        "Zero contradictions with the SSoT"
+                    ],
+                    "common_failure_patterns": [
+                        "Deliverable appears complete but validation is insufficient",
+                        "Partial response to feedback reported as fully addressed"
+                    ]
+                }
+            }
 
     # 3. ディレクトリ作成
     lang_code = "jp" if is_jp else "en"
@@ -165,23 +201,34 @@ def main():
         json.dump(constants, f, indent=2, ensure_ascii=False)
 
     # domain_quality_rules の確認ゲート
-    print("\n[確認] 生成されたドメイン品質ルールを確認してください:")
-    print(json.dumps(config["domain_quality_rules"], indent=2, ensure_ascii=False))
-    print("\n  [ok]   → このまま続行")
-    print("  [edit] → constants.json を手動編集後に続行")
+    if is_jp:
+        print("\n[確認] 生成されたドメイン品質ルールを確認してください:")
+        print(json.dumps(config["domain_quality_rules"], indent=2, ensure_ascii=False))
+        print("\n  [ok]   → このまま続行")
+        print("  [edit] → constants.json を手動編集後に続行")
+        gate_prompt = "\n  確認 [ok/edit]: "
+        edit_instruction = "  ssot/constants.json の domain_quality_rules を編集後、Enter を押してください。"
+        invalid_msg = "  ok または edit を入力してください。"
+    else:
+        print("\n[Review] Check the generated domain quality rules:")
+        print(json.dumps(config["domain_quality_rules"], indent=2, ensure_ascii=False))
+        print("\n  [ok]   → Continue with these rules")
+        print("  [edit] → Edit constants.json manually, then continue")
+        gate_prompt = "\n  Confirm [ok/edit]: "
+        edit_instruction = "  Edit domain_quality_rules in ssot/constants.json, then press Enter."
+        invalid_msg = "  Please enter ok or edit."
     while True:
-        gate = input("\n  確認 [ok/edit]: ").strip().lower()
+        gate = input(gate_prompt).strip().lower()
         if gate == "ok":
             break
         elif gate == "edit":
-            input("  ssot/constants.json の domain_quality_rules を編集後、Enter を押してください。")
-            # 編集後の値を再読み込み
+            input(edit_instruction)
             with open(root / "ssot" / "constants.json", "r", encoding="utf-8") as f:
                 constants = json.load(f)
             config["domain_quality_rules"] = constants.get("domain_quality_rules", {})
             break
         else:
-            print("  ok または edit を入力してください。")
+            print(invalid_msg)
 
     # 5. 初期 seed.md の作成（AIの提案を含む）
     success_str = "\n".join([f"- {c}" for c in config.get("suggested_success_criteria", [])])
@@ -247,10 +294,14 @@ def main():
     generate_ai_context_files(root, constants)
 
     print(f"\n[SUCCESS] Project '{project_name}' initialized by AI Architect!")
-    print(f"  - Domain: {config['domain']}")
-    print(f"  - Role: {config['lexicon']['role_executor']} & {config['lexicon']['role_validator']}")
-    print(f"  - SSoT Name: {config['lexicon']['ssot_name']}")
-    print("\nCheck 'ssot/constants.json' for full configuration.")
+    print(f"  - Domain       : {config['domain']}")
+    print(f"  - Role         : {config['lexicon']['role_executor']} & {config['lexicon']['role_validator']}")
+    print(f"  - SSoT Name    : {config['lexicon']['ssot_name']}")
+    print(f"  - Pipeline Mode: {config.get('pipeline_mode', 'independent')}")
+    if is_jp:
+        print("\n'ssot/constants.json' で全設定を確認してください。")
+    else:
+        print("\nCheck 'ssot/constants.json' for full configuration.")
 
 
 def generate_ai_context_files(root: Path, constants: dict):
