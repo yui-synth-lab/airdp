@@ -12,6 +12,8 @@ Your task is to analyze the provided `seed.md`, break it down into concrete and 
 ## Procedures
 
 ### Step 1: Analyze seed.md
+**CRITICAL: Read the file located at `{{SEED_PATH}}`. If this file does not exist, you MUST immediately stop all operations, report an error, and exit. Do NOT attempt to generate the file yourself or perform Phase 1 tasks (such as selecting objectives).**
+
 Read the seed.md and identify the following:
 - **Core Objectives**: What we want to achieve.
 - **Background**: Why it is needed.
@@ -22,12 +24,12 @@ Decompose the overall project goal into a maximum of three independent "{{unit_o
 For each {{unit_objective}}, define:
 - **Success Criteria ({{unit_criteria}})**: What results are required for approval (ACCEPT). Must be quantitative or objectively evaluable.
 - **Rejection/Exit Criteria**: What flaws or errors would trigger a rejection (REJECT) or a revision request (MODIFY).
-- **Max Iterations**: The maximum number of iterations allowed for this {{unit_objective}}. Use `{{max_iterations_per_objective}}` as the default, but adjust based on complexity (simpler tasks may need fewer; harder tasks may need more, up to the global limit).
+- **Max Iterations**: The maximum number of iterations allowed for this {{unit_objective}}. Use `{{max_iterations_per_objective}}` as the default, but adjust based on complexity.
 
 ### Step 3: Generate roadmap.md
-Generate the {{roadmap}} with the following structure:
+Generate the `{{roadmap}}` file **strictly following the Markdown structure below**. Do not include any introductory text or closing remarks.
 
-`markdown
+```markdown
 # AIRDP Roadmap — {{PROJECT_NAME}} Cycle {{cycle_id}}
 
 ## 1. Assigned {{unit_objective}} List
@@ -42,7 +44,7 @@ List specific tasks to be executed in each iteration. The {{role_executor}} will
 | Iter | Obj ID | Task Description | Status |
 |------|--------|-----------------|--------|
 | 01   | H1     | ...             | [ ]    |
-`
+```
 
 ---
 
@@ -53,8 +55,9 @@ List specific tasks to be executed in each iteration. The {{role_executor}} will
 
 ## ABSOLUTE PROHIBITIONS
 
+- **DO NOT perform Phase 1 (Seed setting) yourself.** If `{{SEED_PATH}}` is missing, exit with an error.
 - **DO NOT edit, modify, or rewrite any AIRDP framework files** (`airdp_*.py`, `airdp_prompts_v3/**`, `ssot/constants.json`, `ssot/project_ssot_template.py`).
-- **DO NOT re-run or invoke the orchestrator or any AIRDP script.** You are a single agent called once; do not spawn sub-processes or call `python airdp_orchestrator.py`.
-- **DO NOT modify `ssot/constants.json`.** It is read-only during pipeline execution.
-- Your sole output for this phase is the `roadmap.md` file at `{{roadmap}}`.
-- **DO NOT execute Phase 3, Phase 4, or Phase 5 yourself.** The Researcher, Reviewer, Judge, and Phase 5 Orchestrator roles are handled by separate AI agents. Once you have generated `roadmap.md`, stop immediately. Even if you can read `researcher.md`, `reviewer.md`, `judge_phase4.md`, or `orchestrator_phase5.md`, you must NOT act on them.
+- **DO NOT re-run or invoke the orchestrator or any AIRDP script.**
+- Your sole outputs for this phase are the `roadmap.md` file at `{{roadmap}}` and JSON files in `ssot/hypotheses/`.
+- **DO NOT execute Phase 3, Phase 4, or Phase 5 yourself.** These roles are handled by separate AI agents. Stop immediately after generating `roadmap.md`.
+- Limit the use of research tools (grep, list_directory, etc.) to only verifying the contents of `{{SEED_PATH}}` and constraints within `ssot/`. Do not attempt to "fix" or "improve" the project beyond this scope.

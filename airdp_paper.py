@@ -1,20 +1,23 @@
 import re
 import os
 import sys
+import shutil
 import argparse
 from pathlib import Path
 from airdp_core import get_core
 
 
 class AirdpPaper:
-    def __init__(self, paper_dir, project_dir=".", orchestrator="gemini", writer="gemini", reviewer="claude", max_revisions=5):
+    def __init__(self, paper_dir, project_dir=".", orchestrator="gemini", writer="gemini", reviewer="claude", max_revisions=5, start_revision=None):
         self.project_dir = Path(project_dir).resolve()
         self.paper_dir = self.project_dir / paper_dir
         self.orchestrator = orchestrator
         self.writer = writer
         self.reviewer = reviewer
         self.max_revisions = max_revisions
+        self.start_revision = start_revision
         self.core = get_core(self.project_dir)
+        self.core.paths["session_dir"] = self.paper_dir / ".sessions"
 
     def _collect_cycle_reports(self):
         """cycles/ 配下の全 cycle_report.md のパスを新しい順に返す。"""
@@ -85,6 +88,17 @@ class AirdpPaper:
 
         return True
 
+    def _detect_start_revision(self):
+        """paper_dir 内の既存ファイルから再開すべき revision 番号を自動検出する。
+        --start-revision が指定されていればそれを優先する。"""
+        if self.start_revision is not None:
+            return self.start_revision
+        # draft_v{N}.md が存在する最大の N+1 から開始
+        revision = 1
+        while (self.paper_dir / f"draft_v{revision:02d}.md").exists():
+            revision += 1
+        return revision
+
     def run_pipeline(self):
         print(f"\n{'='*50}")
         print(f"  AIRDP v3.0 Paper Pipeline")
@@ -127,11 +141,16 @@ class AirdpPaper:
 
         self.paper_dir.mkdir(parents=True, exist_ok=True)
 
-        revision = 1
+        start_revision = self._detect_start_revision()
+        if start_revision > 1:
+            print(f"  [RESUME] Resuming from Revision {start_revision:02d} "
+                  f"(found draft_v{start_revision-1:02d}.md + review_v{start_revision-1:02d}.md)")
+        revision = start_revision
+        limit = start_revision + self.max_revisions - 1
         finished = False
         while not finished:
-            if revision > self.max_revisions:
-                print(f"[LIMIT] Reached maximum revisions ({self.max_revisions}).")
+            if revision > limit:
+                print(f"[LIMIT] Reached maximum revisions ({self.max_revisions} from revision {start_revision:02d}).")
                 break
 
             print(f"\n--- Revision {revision:02d} ---")
@@ -142,6 +161,7 @@ class AirdpPaper:
 
             # 1. Writer
             print(f"  [{self.core.constants['lexicon'].get('role_executor', 'Writer')}] Writing...")
+            prev_draft_mtime = prev_draft.stat().st_mtime if prev_draft and Path(prev_draft).exists() else None
             writer_prompt = self.core.expand_prompt("paper_writer.md", {
                 "BRIEF_PATH": brief_path,
                 "DRAFT_PATH": draft_path,
@@ -151,11 +171,34 @@ class AirdpPaper:
                 "PAPER_DIR": self.paper_dir,
                 "SSOT_DIR": self.core.paths["ssot_dir"]
             })
-            self.core.invoke_ai(self.writer, writer_prompt, role="paper_writer")
+            self.core.invoke_ai(self.writer, writer_prompt, role=f"paper_writer_r{revision:02d}")
 
             if not draft_path.exists():
-                print(f"  [ERROR] Draft was not generated. Stopping.")
-                break
+                # AI が別パスに書いた可能性を検索してリカバリ
+                recovered = False
+                # 1. prev_draft を上書きしたケース（mtime 変化で検出）
+                if prev_draft and Path(prev_draft).exists() and prev_draft_mtime is not None:
+                    if Path(prev_draft).stat().st_mtime != prev_draft_mtime:
+                        print(f"  [RECOVER] AI overwrote {prev_draft}, copying to {draft_path}")
+                        shutil.copy2(prev_draft, draft_path)
+                        recovered = True
+                # 2. ゼロ埋めなし等の別名パターンに書いたケース（paper_dir 内を探す）
+                if not recovered:
+                    candidates = [
+                        self.paper_dir / f"draft_v{revision}.md",       # draft_v1.md
+                        self.paper_dir / f"draft_v{revision:02d}.md",   # draft_v01.md (念のため)
+                        self.paper_dir / f"draft_{revision:02d}.md",    # draft_01.md
+                        self.paper_dir / f"draft_{revision}.md",        # draft_1.md
+                    ]
+                    for candidate in candidates:
+                        if candidate != draft_path and candidate.exists():
+                            print(f"  [RECOVER] AI wrote to {candidate}, moving to {draft_path}")
+                            shutil.move(str(candidate), draft_path)
+                            recovered = True
+                            break
+                if not recovered:
+                    print(f"  [ERROR] Draft was not generated. Stopping.")
+                    break
 
             # 2. Reviewer
             print(f"  [{self.core.constants['lexicon'].get('role_validator', 'Reviewer')}] Reviewing...")
@@ -166,11 +209,25 @@ class AirdpPaper:
                 "REVISION": revision,
                 "SSOT_DIR": self.core.paths["ssot_dir"]
             })
-            self.core.invoke_ai(self.reviewer, reviewer_prompt, role="paper_reviewer")
+            self.core.invoke_ai(self.reviewer, reviewer_prompt, role=f"paper_reviewer_r{revision:02d}")
 
             if not review_path.exists():
-                print(f"  [ERROR] Review report was not generated. Stopping.")
-                break
+                # ゼロ埋めなし等の別名パターンに書いたケースを検索
+                review_candidates = [
+                    self.paper_dir / f"review_v{revision}.md",
+                    self.paper_dir / f"review_{revision:02d}.md",
+                    self.paper_dir / f"review_{revision}.md",
+                ]
+                review_recovered = False
+                for candidate in review_candidates:
+                    if candidate != review_path and candidate.exists():
+                        print(f"  [RECOVER] AI wrote to {candidate}, moving to {review_path}")
+                        shutil.move(str(candidate), review_path)
+                        review_recovered = True
+                        break
+                if not review_recovered:
+                    print(f"  [ERROR] Review report was not generated. Stopping.")
+                    break
 
             # 3. Decision
             review_content = review_path.read_text(encoding="utf-8")
@@ -196,6 +253,8 @@ def main():
     parser.add_argument("--writer", default="gemini")
     parser.add_argument("--reviewer", default="claude")
     parser.add_argument("--max-revisions", type=int, default=5)
+    parser.add_argument("--start-revision", type=int, default=None,
+                        help="Revision number to start from (default: auto-detect from existing files)")
 
     args = parser.parse_args()
 
@@ -205,7 +264,8 @@ def main():
         orchestrator=args.orchestrator,
         writer=args.writer,
         reviewer=args.reviewer,
-        max_revisions=args.max_revisions
+        max_revisions=args.max_revisions,
+        start_revision=args.start_revision
     )
     pipeline.run_pipeline()
 

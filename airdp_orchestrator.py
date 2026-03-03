@@ -73,6 +73,12 @@ class AirdpOrchestrator:
         Returns True to proceed, False to halt."""
         print(f"\n>>> Phase 2: Planning (Orchestrator: {self.models['orchestrator']})")
 
+        seed_path = self.core.paths["cycle_dir"] / "seed.md"
+        if not seed_path.exists():
+            print(f"  [ERROR] seed.md not found at {seed_path}")
+            print("  Please create seed.md (Phase 1) before running Phase 2.")
+            return False
+
         approved = False
         while not approved:
             prompt = self.core.expand_prompt("orchestrator_phase2.md", {

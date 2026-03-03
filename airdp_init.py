@@ -292,6 +292,14 @@ def generate_ai_context_files(root: Path, constants: dict):
 - All filesystem operations are pre-approved via --approval-mode=yolo.
 - You are allowed and encouraged to use 'write_file', 'replace', and 'run_shell_command' to complete your tasks.
 - Non-interactive mode is active; do not wait for user confirmation.
+
+## File Write Rules (ALWAYS ENFORCE)
+- The output file path is always specified explicitly in the prompt you receive. Write ONLY to that exact path.
+- NEVER write to a different path of your own choosing, even if a similarly named file already exists elsewhere.
+- NEVER overwrite a previous draft or review file. Each revision gets its own new file (e.g. draft_v02.md, not draft_v01.md).
+- Use the exact filename given, including zero-padded numbers (e.g. draft_v01.md, NOT draft_v1.md).
+- NEVER create or modify any files under airdp_prompts_v3/. Those are framework files.
+- After writing, verify the file exists by reading it back. If it does not exist, write it again.
 """
 
     files = [

@@ -1,14 +1,17 @@
 # Paper Brief Generation Prompt
 
+> **⚠️ CRITICAL**: The only file you are allowed to write in this task is **`{{BRIEF_PATH}}`**.
+> Writing to any other path — including any existing brief.md — is strictly forbidden.
+
 You are the Orchestrator of the AIRDP framework.
-Based on the accumulated cycle results, create a writing brief (brief.md) for the paper/document pipeline.
+Based on the accumulated cycle results, create a writing brief for the paper/document pipeline.
 
 **Project Name:** {{PROJECT_NAME}}
 **Domain:** {{DOMAIN}}
 **Ultimate Goal:** {{GOAL}}
 **SSoT Directory:** {{SSOT_DIR}}
 **Cycle Reports to Reference:** {{CYCLE_REPORTS}}
-**Output Dest:** {{BRIEF_PATH}}
+**Output Path (absolute):** `{{BRIEF_PATH}}`
 
 ---
 
@@ -25,7 +28,10 @@ Based on the accumulated cycle results, create a writing brief (brief.md) for th
 
 ### Step 2: Create brief.md
 
-Create `{{BRIEF_PATH}}` using the following structure:
+**Write** `{{BRIEF_PATH}}` to disk using the Write tool (or equivalent file-write command).
+Outputting text to the terminal is not sufficient — you must save it as an actual file at `{{BRIEF_PATH}}`.
+
+Use the following structure:
 
 ```markdown
 # Writing Brief
@@ -62,3 +68,7 @@ Create `{{BRIEF_PATH}}` using the following structure:
 - **DO NOT edit any AIRDP framework files**
 - **DO NOT modify `ssot/constants.json`**
 - Your sole output for this phase is `{{BRIEF_PATH}}`
+
+### Step 3: Final Verification (Required)
+
+After writing with the Write tool, use the Read tool to confirm that `{{BRIEF_PATH}}` exists and contains the expected content. If it does not exist, write it again.
