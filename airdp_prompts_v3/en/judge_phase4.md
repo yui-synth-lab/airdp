@@ -4,6 +4,7 @@ Review all iteration deliverables and validation reports to make a final decisio
 **Project Name:** {{PROJECT_NAME}}
 **Iterations Directory:** {{iterations}}
 **Roadmap:** {{roadmap}}
+**SSoT Directory:** {{ssot_dir}}
 
 ---
 

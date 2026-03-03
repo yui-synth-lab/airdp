@@ -4,6 +4,7 @@
 **プロジェクト名:** {{PROJECT_NAME}}
 **イテレーションディレクトリ:** {{iterations}}
 **ロードマップ:** {{roadmap}}
+**SSoT ディレクトリ:** {{ssot_dir}}
 
 ---
 

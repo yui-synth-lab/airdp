@@ -236,12 +236,16 @@ class AirdpPaper:
                 print(f"  Final document: {draft_path}")
                 print(f"  Rename to 'paper_final.md' when ready.")
                 finished = True
+            elif re.search(r"VERDICT\W+STOP", review_content):
+                print(f"\n[STOPPED] Revision {revision:02d} — fatal issue detected by reviewer.")
+                print(f"  See review: {review_path}")
+                break
             elif re.search(r"VERDICT\W+REVISE", review_content):
                 print(f"\n[REVISE] Revision {revision:02d} needs work. Moving to next revision.")
                 revision += 1
             else:
                 print(f"\n[ERROR] No VERDICT found in review. Stopping.")
-                print(f"  Expected pattern: 'VERDICT: ACCEPT' or 'VERDICT: REVISE'")
+                print(f"  Expected pattern: 'VERDICT: ACCEPT', 'VERDICT: REVISE', or 'VERDICT: STOP'")
                 break
 
 

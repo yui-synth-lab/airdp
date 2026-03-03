@@ -4,6 +4,7 @@ Follow the {{ssot_name}} to execute tasks and record results.
 **Roadmap:** {{roadmap}}
 **Current Work Directory:** {{cycle_dir}}
 **Iteration Directory:** {{ITER_DIR}}
+**SSoT Directory:** {{ssot_dir}}
 **Output Log:** {{log}}
 
 ---
@@ -14,13 +15,23 @@ Follow the {{ssot_name}} to execute tasks and record results.
 Read the roadmap and confirm the assigned "{{unit_objective}}".
 
 ### Step 2: Execute Task
-Adhering to the constraints of {{ssot_name}}, perform the following:
+Read `{{ssot_dir}}/constants.json` and files under `{{ssot_dir}}/hypotheses/`. Adhering to the constraints of {{ssot_name}}, perform the following:
 - Generate deliverables (code, document, data, etc.)
 - Ensure reproducibility
 - Retrieve all constants and rules from {{ssot_name}} (No hardcoding)
 
 ### Step 3: Record Results
-Create `results.json` and store the work performed and numerical results in a structured format.
+Create `results.json` with the following schema:
+
+```json
+{
+  "objective_id": "H1",
+  "status": "completed",
+  "summary": "Brief summary of deliverables (1-2 sentences)",
+  "ssot_references": ["List of SSoT items referenced"],
+  "output_files": ["List of generated file names"]
+}
+```
 
 ### Step 4: Create Report
 Create `executor_report.md` describing the summary of work and compliance with {{ssot_name}}.

@@ -186,9 +186,7 @@ class AirdpOrchestrator:
                 # 1. Researcher
                 print(f"  [{self.core.constants['lexicon']['role_executor']}] Working...")
                 res_prompt = self.core.expand_prompt("researcher.md", {
-                    "ITER_DIR": iter_dir,
-                    "NG_PATH": ng_path,
-                    "GO_PATH": go_path
+                    "ITER_DIR": iter_dir
                 })
                 self.core.invoke_ai(self.models["researcher"], res_prompt, role="researcher")
 
@@ -209,9 +207,8 @@ class AirdpOrchestrator:
                     go_path.unlink()
                     iteration += 1
                 elif ng_path.exists():
-                    print(f"  [REJECTED] Addressing issues in next iteration.")
+                    print(f"  [MODIFY] Addressing issues — retrying Iteration {iteration:02d}.")
                     ng_path.unlink()
-                    iteration += 1
                 else:
                     print("  [ERROR] No decision file (go.md/ng.md/cycle_complete.md) found. Stopping.")
                     finished = True
@@ -223,7 +220,11 @@ class AirdpOrchestrator:
         """Handle Ctrl+C emergency stop. Log reason and proceed to Phase 4."""
         import datetime
         print("\n\n  [EMERGENCY STOP] Ctrl+C detected.")
-        reason = input("  Enter stop reason (optional): ").strip()
+        reason = ""
+        while not reason:
+            reason = input("  Enter stop reason (required): ").strip()
+            if not reason:
+                print("  Reason is required for the audit trail.")
 
         stop_dir = self.project_dir / "audit" / "emergency_stops"
         stop_dir.mkdir(parents=True, exist_ok=True)
@@ -232,7 +233,7 @@ class AirdpOrchestrator:
         content = (
             f"# Emergency Stop — Cycle {self.cycle_id}\n\n"
             f"**Timestamp:** {datetime.datetime.now().isoformat()}\n"
-            f"**Reason:** {reason or '(not provided)'}\n\n"
+            f"**Reason:** {reason}\n\n"
             f"Proceeding directly to Phase 4 (Judge).\n"
         )
         stop_path.write_text(content, encoding="utf-8")
@@ -243,9 +244,7 @@ class AirdpOrchestrator:
 
     def run_phase_4(self):
         print(f"\n>>> Phase 4: Judging (Judge: {self.models['judge']})")
-        prompt = self.core.expand_prompt("judge_phase4.md", {
-            "ITERATIONS_DIR": self.core.paths["iterations"]
-        })
+        prompt = self.core.expand_prompt("judge_phase4.md")
         self.core.invoke_ai(self.models["judge"], prompt, role="judge")
         verdict_path = self.core.paths["cycle_dir"] / "verdict.md"
         if verdict_path.exists():
@@ -258,7 +257,6 @@ class AirdpOrchestrator:
     def run_phase_5(self):
         print(f"\n>>> Phase 5: Reporting")
         prompt = self.core.expand_prompt("orchestrator_phase5.md", {
-            "VERDICT_PATH": self.core.paths["cycle_dir"] / "verdict.md",
             "IDEA_QUEUE_PATH": self.core.paths["idea_queue"]
         })
         self.core.invoke_ai(self.models["orchestrator"], prompt, role="orchestrator_phase5")

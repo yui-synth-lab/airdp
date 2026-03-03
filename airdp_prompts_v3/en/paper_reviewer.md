@@ -25,6 +25,7 @@ Review the draft strictly according to the review standards defined in the Writi
 
 Check every item in Brief **Section 5 (Review Standards)**.
 Any single unmet item results in REVISE.
+If there is a fatal, unfixable flaw (e.g., fundamental premise error, domain mismatch), issue STOP.
 
 Also verify the following common criteria:
 
@@ -40,7 +41,7 @@ Use the Write tool to **create a file** at `{{REVIEW_PATH}}` with the following 
 # Review — draft_v{{REVISION}}
 
 **Date:** [today's date]
-**VERDICT:** ACCEPT or REVISE
+**VERDICT:** ACCEPT / REVISE / STOP
 
 ---
 

@@ -50,12 +50,13 @@ class AirdpCore:
 
         dqr = self.constants.get("domain_quality_rules", {})
 
-        vars = {
-            "PROJECT_NAME": self.constants.get("project_info", {}).get("name", "AIRDP Project"),
-            "DOMAIN": self.constants.get("project_info", {}).get("domain", "General"),
-            "GOAL": self.constants.get("project_info", {}).get("goal", ""),
+        info = self.constants.get("project_info", {})
+        template_vars = {
+            "PROJECT_NAME": info.get("name", "AIRDP Project"),
+            "DOMAIN": info.get("domain", "General"),
+            "GOAL": info.get("goal", "") or info.get("description", ""),
             **self.constants.get("lexicon", {}),
-            **self.paths,
+            **{k: v.as_posix() if isinstance(v, Path) else v for k, v in self.paths.items()},
             "DOMAIN_PROHIBITIONS": "\n".join(
                 f"- {p}" for p in dqr.get("researcher_prohibitions", [])
             ) or "（ドメイン固有の禁止事項は未設定）",
@@ -68,10 +69,11 @@ class AirdpCore:
             "FAILURE_PATTERNS": "\n".join(
                 f"- {p}" for p in dqr.get("common_failure_patterns", [])
             ) or "（ドメイン固有の失敗パターンは未設定）",
-            **(extra_vars or {})
         }
+        for k, v in (extra_vars or {}).items():
+            template_vars[k] = v.as_posix() if isinstance(v, Path) else v
 
-        for k, v in vars.items():
+        for k, v in template_vars.items():
             content = content.replace(f"{{{{{k}}}}}", str(v))
 
         return content
