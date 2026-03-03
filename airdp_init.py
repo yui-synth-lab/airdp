@@ -74,6 +74,7 @@ def main():
       }},
     - "suggested_success_criteria": ["Criterion 1", "Criterion 2"],
     - "suggested_exit_criteria": ["When to stop 1", "When to stop 2"],
+    - "pipeline_mode": "cumulative" if the domain requires incrementally building a single shared artifact over iterations (e.g., software development, editing a long document), or "independent" if each iteration produces a standalone deliverable (e.g., experiments, analyses, creative scenes).
     - "domain_quality_rules": {{
         "researcher_prohibitions": [
           "List 3-5 things the Executor must NEVER do in this domain.",
@@ -155,7 +156,8 @@ def main():
         "pipeline_limits": {
             "max_objectives_per_cycle": 3,
             "max_iterations_per_objective": 10,
-            "consecutive_stop_limit": 2
+            "consecutive_stop_limit": 2,
+            "pipeline_mode": config.get("pipeline_mode", "independent")
         },
         "domain_quality_rules": config["domain_quality_rules"]
     }

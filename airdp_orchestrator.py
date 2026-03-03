@@ -145,6 +145,7 @@ class AirdpOrchestrator:
 
         limits = self.core.constants.get("pipeline_limits", {})
         max_iters = limits.get("max_iterations_per_objective", 10)
+        pipeline_mode = limits.get("pipeline_mode", "independent")
         iteration = 1
 
         # Find resume point if iterations already exist
@@ -181,12 +182,17 @@ class AirdpOrchestrator:
                 print(f"\n--- Iteration {iteration:02d} ---")
                 iter_dir = self.core.paths["iterations"] / f"iter_{iteration:02d}"
                 iter_dir.mkdir(parents=True, exist_ok=True)
-                (iter_dir / "code").mkdir(exist_ok=True)
+                if pipeline_mode == "cumulative":
+                    self.core.paths["src"].mkdir(parents=True, exist_ok=True)
+                else:
+                    (iter_dir / "code").mkdir(exist_ok=True)
 
                 # 1. Researcher
                 print(f"  [{self.core.constants['lexicon']['role_executor']}] Working...")
                 res_prompt = self.core.expand_prompt("researcher.md", {
-                    "ITER_DIR": iter_dir
+                    "ITER_DIR": iter_dir,
+                    "SRC_DIR": self.core.paths["src"],
+                    "PIPELINE_MODE": pipeline_mode
                 })
                 self.core.invoke_ai(self.models["researcher"], res_prompt, role="researcher")
 

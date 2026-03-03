@@ -22,8 +22,21 @@
 > **【重要】** すべての根拠は {{ssot_name}} から取得してください。{{ssot_name}} にない情報を勝手に捏造（ハルシネーション）しないでください。
 
 ### Step 3: 成果物の保存
-作成した内容を、適切な形式（Markdown, Python, JSON等）で {{ITER_DIR}} 内に保存してください。
-また、作業結果の要約を以下のスキーマで `results.json` に記録してください:
+
+**`{{PIPELINE_MODE}}` が `cumulative` の場合:**
+
+- コードおよびリソースファイルはすべて `{{SRC_DIR}}/`（全イテレーション共有ディレクトリ）に書き込む。
+- 既存ファイルはその場で更新する — `{{ITER_DIR}}` に複製しないこと。
+- `results.json` と `executor_report.md` のみ `{{ITER_DIR}}` に保存する。
+
+**`{{PIPELINE_MODE}}` が `independent` の場合:**
+
+- すべての成果物（コード、文書、データ等）を `{{ITER_DIR}}` に保存する。
+- `results.json` と `executor_report.md` も `{{ITER_DIR}}` に保存する。
+
+### Step 4: 結果の記録
+
+`{{ITER_DIR}}` 内に `results.json` を以下のスキーマで作成してください:
 
 ```json
 {
@@ -35,8 +48,8 @@
 }
 ```
 
-### Step 4: 報告書の作成
-`executor_report.md` を作成し、今回の作業で {{ssot_name}} のどの部分を参照し、どのように目標を達成したかを報告してください。
+### Step 5: 報告書の作成
+`{{ITER_DIR}}` 内に `executor_report.md` を作成し、今回の作業で {{ssot_name}} のどの部分を参照し、どのように目標を達成したかを報告してください。
 
 ---
 
@@ -59,5 +72,6 @@
 - **AIRDPフレームワークのファイルを編集・改変しないこと** (`airdp_*.py`、`airdp_prompts_v3/**`、`ssot/constants.json`、`ssot/project_ssot_template.py`)。
 - **AIRDPスクリプトを再実行・呼び出さないこと。** あなたはオーケストレーターから一度だけ呼ばれる存在です。サブプロセスを生成しないでください。
 - **`ssot/constants.json` を変更しないこと。** パイプライン実行中は読み取り専用です。
-- このフェーズでの出力物は `{{ITER_DIR}}` 内の `results.json` と `executor_report.md` のみです。
+- **cumulative モード**: コード・リソースの出力先は `{{SRC_DIR}}`。`results.json` と `executor_report.md` のみ `{{ITER_DIR}}` に保存すること。
+- **independent モード**: すべての出力物を `{{ITER_DIR}}` に保存すること。
 - **Reviewer・Judge・Orchestrator の役割を自分で実行しないこと。** `reviewer.md`・`judge_phase4.md`・`orchestrator_phase5.md` の内容を参照しても、それに従って作業してはいけません。

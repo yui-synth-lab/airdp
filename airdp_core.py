@@ -17,6 +17,12 @@ class AirdpCore:
     def _resolve_paths(self):
         cycle_dir = self.project_dir / "cycles" / f"cycle_{self.cycle_id}"
         ssot_dir = self.project_dir / "ssot"
+        # プロンプトテンプレートは airdp_core.py と同じディレクトリ配下を優先し、
+        # 存在しなければ project_dir 配下にフォールバックする
+        framework_dir = Path(__file__).parent
+        prompts_dir = framework_dir / "airdp_prompts_v3"
+        if not prompts_dir.exists():
+            prompts_dir = self.project_dir / "airdp_prompts_v3"
         return {
             "project_dir": self.project_dir,
             "cycle_dir": cycle_dir,
@@ -26,8 +32,9 @@ class AirdpCore:
             "iterations": cycle_dir / "iterations",
             "session_dir": cycle_dir / ".sessions",
             "constants": ssot_dir / "constants.json",
-            "prompts": self.project_dir / "airdp_prompts_v3",
-            "idea_queue": self.project_dir / "idea_queue.md"
+            "prompts": prompts_dir,
+            "idea_queue": self.project_dir / "idea_queue.md",
+            "src": self.project_dir / "src"
         }
 
     def _load_constants(self):
@@ -143,14 +150,20 @@ class AirdpCore:
 
             stdout_lines = []
 
+            # Gemini はプロンプトを stdin 経由で渡す（長いプロンプトや特殊文字を安全に扱うため）
+            use_stdin = (ai_name == "gemini")
             proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                stdin=subprocess.DEVNULL,
+                stdin=subprocess.PIPE if use_stdin else subprocess.DEVNULL,
                 text=True, encoding="utf-8",
                 shell=(sys.platform == "win32"),
                 env=run_env
             )
+
+            if use_stdin:
+                proc.stdin.write(prompt)
+                proc.stdin.close()
 
             # stdout をリアルタイムで表示しながら収集
             for line in proc.stdout:
@@ -224,16 +237,17 @@ class AirdpCore:
 
     def _build_cmd(self, ai_name, prompt, role):
         """AIバックエンドとセッション状態に応じてコマンドを組み立てる。
-        プロンプトは文字列として直接 -p に渡す（PS版と同方式）。"""
+        Gemini はプロンプトを stdin 経由で渡す（Windows の shell=True でも特殊文字が壊れないため）。
+        Claude/Copilot/Codex は -p 引数で渡す。"""
         session_id = self.load_session_id(role) if role else None
 
         if ai_name == "gemini":
             base_cmd = ["gemini", "--approval-mode", "yolo"]
             if session_id:
                 print(f"  [Session] Gemini resume: {session_id}")
-                return base_cmd + ["-r", session_id, "-p", prompt]
+                return base_cmd + ["-r", session_id]
             else:
-                return base_cmd + ["-p", prompt]
+                return base_cmd
 
         elif ai_name == "claude":
             claude_base = ["claude", "-p", prompt,
@@ -281,24 +295,34 @@ def invoke_ai_simple(ai_name, prompt):
     stdout テキストをそのまま返す。失敗時は空文字列。"""
     print(f"  [AI: {ai_name}] Invoking...")
     try:
-        cmd = [ai_name, "-p", prompt, "--approval-mode", "yolo"]
         run_env = os.environ.copy()
-        if ai_name == "claude":
+        if ai_name == "gemini":
+            # Gemini はプロンプトを stdin 経由で渡す
+            cmd = [ai_name, "--approval-mode", "yolo"]
+            use_stdin = True
+        elif ai_name == "claude":
             for key in ["CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_VERSION"]:
                 run_env.pop(key, None)
             cmd = [ai_name, "-p", prompt,
                    "--allowedTools", "Read,Write,Edit,Bash,Glob,Grep",
                    "--permission-mode", "bypassPermissions"]
+            use_stdin = False
+        else:
+            cmd = [ai_name, "-p", prompt]
+            use_stdin = False
 
         stdout_lines = []
         proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            stdin=subprocess.DEVNULL,
+            stdin=subprocess.PIPE if use_stdin else subprocess.DEVNULL,
             text=True, encoding="utf-8",
             shell=(sys.platform == "win32"),
             env=run_env
         )
+        if use_stdin:
+            proc.stdin.write(prompt)
+            proc.stdin.close()
         for line in proc.stdout:
             print(line, end="", flush=True)
             stdout_lines.append(line)

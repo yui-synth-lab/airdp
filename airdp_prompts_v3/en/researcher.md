@@ -20,8 +20,21 @@ Read `{{ssot_dir}}/constants.json` and files under `{{ssot_dir}}/hypotheses/`. A
 - Ensure reproducibility
 - Retrieve all constants and rules from {{ssot_name}} (No hardcoding)
 
-### Step 3: Record Results
-Create `results.json` with the following schema:
+### Step 3: Save Deliverables
+
+**If `{{PIPELINE_MODE}}` is `cumulative`:**
+
+- Write all code and resource files to `{{SRC_DIR}}/` (shared directory across all iterations).
+- Update existing files in place — do NOT duplicate them inside `{{ITER_DIR}}`.
+- Save only `results.json` and `executor_report.md` to `{{ITER_DIR}}`.
+
+**If `{{PIPELINE_MODE}}` is `independent`:**
+
+- Save all deliverables (code, documents, data, etc.) to `{{ITER_DIR}}`.
+- Save `results.json` and `executor_report.md` to `{{ITER_DIR}}`.
+
+### Step 4: Record Results
+Create `results.json` inside `{{ITER_DIR}}` with the following schema:
 
 ```json
 {
@@ -33,8 +46,8 @@ Create `results.json` with the following schema:
 }
 ```
 
-### Step 4: Create Report
-Create `executor_report.md` describing the summary of work and compliance with {{ssot_name}}.
+### Step 5: Create Report
+Create `executor_report.md` inside `{{ITER_DIR}}` describing the summary of work and compliance with {{ssot_name}}.
 
 ---
 
@@ -57,5 +70,6 @@ Create `executor_report.md` describing the summary of work and compliance with {
 - **DO NOT edit, modify, or rewrite any AIRDP framework files** (`airdp_*.py`, `airdp_prompts_v3/**`, `ssot/constants.json`, `ssot/project_ssot_template.py`).
 - **DO NOT re-run or invoke any AIRDP script.** You are called once by the orchestrator; do not spawn sub-processes.
 - **DO NOT modify `ssot/constants.json`.** It is read-only during pipeline execution.
-- Your outputs for this phase are `results.json` and `executor_report.md` inside `{{ITER_DIR}}`.
+- **cumulative mode**: Code and resource outputs go to `{{SRC_DIR}}`. Only `results.json` and `executor_report.md` go to `{{ITER_DIR}}`.
+- **independent mode**: All outputs go to `{{ITER_DIR}}`.
 - **DO NOT perform the Reviewer, Judge, or Orchestrator roles yourself.** Even if you can read `reviewer.md`, `judge_phase4.md`, or `orchestrator_phase5.md`, you must NOT act on them.
