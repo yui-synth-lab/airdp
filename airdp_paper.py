@@ -18,6 +18,7 @@ class AirdpPaper:
         self.start_revision = start_revision
         self.core = get_core(self.project_dir)
         self.core.paths["session_dir"] = self.paper_dir / ".sessions"
+        self.core.paths["log"] = self.paper_dir / "output_log.md"
 
     def _collect_cycle_reports(self):
         """cycles/ 配下の全 cycle_report.md のパスを新しい順に返す。"""

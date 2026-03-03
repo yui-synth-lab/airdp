@@ -150,14 +150,17 @@ class AirdpCore:
 
             stdout_lines = []
 
-            # Gemini はプロンプトを stdin 経由で渡す（長いプロンプトや特殊文字を安全に扱うため）
+            # Gemini はプロンプトを stdin 経由で渡す（長プロンプト・特殊文字対策）
+            # Gemini は npm .cmd なので Windows では shell=True が必要
+            # Claude は -p 引数で渡すが shell=False で CreateProcess に直接渡す（長プロンプトの壊れ防止）
             use_stdin = (ai_name == "gemini")
+            use_shell = (sys.platform == "win32") and (ai_name != "claude")
             proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 stdin=subprocess.PIPE if use_stdin else subprocess.DEVNULL,
                 text=True, encoding="utf-8",
-                shell=(sys.platform == "win32"),
+                shell=use_shell,
                 env=run_env
             )
 
@@ -311,13 +314,14 @@ def invoke_ai_simple(ai_name, prompt):
             cmd = [ai_name, "-p", prompt]
             use_stdin = False
 
+        use_shell = (sys.platform == "win32") and (ai_name != "claude")
         stdout_lines = []
         proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             stdin=subprocess.PIPE if use_stdin else subprocess.DEVNULL,
             text=True, encoding="utf-8",
-            shell=(sys.platform == "win32"),
+            shell=use_shell,
             env=run_env
         )
         if use_stdin:
