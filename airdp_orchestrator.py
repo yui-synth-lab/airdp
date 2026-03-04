@@ -1,20 +1,70 @@
 import os
 import sys
+import json
 import argparse
 from pathlib import Path
 from airdp_core import get_core
+
+
+def _load_config(project_dir: Path) -> dict:
+    """airdp_config.json を読み込む。プロジェクトルート優先、なければフレームワークルート。"""
+    candidates = [
+        project_dir / "airdp_config.json",
+        Path(__file__).parent / "airdp_config.json",
+    ]
+    for path in candidates:
+        if path.exists():
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+    return {}
+
+
+def _parse_model_spec(spec: str) -> dict:
+    """'gemini:gemini-2.5-pro' → {'backend': 'gemini', 'model': 'gemini-2.5-pro'}
+    'gemini' → {'backend': 'gemini', 'model': None}"""
+    if ":" in spec:
+        backend, model = spec.split(":", 1)
+        return {"backend": backend.strip(), "model": model.strip()}
+    return {"backend": spec.strip(), "model": None}
+
+
+_ROLE_FALLBACKS = {
+    "orchestrator": {"backend": "gemini", "model": None},
+    "researcher":   {"backend": "gemini", "model": None},
+    "writer":       {"backend": "gemini", "model": None},
+    "reviewer":     {"backend": "claude", "model": None},
+    "judge":        {"backend": "claude", "model": None},
+}
+
+
+def _build_models(project_dir: Path, cli_overrides: dict, roles: tuple = None) -> dict:
+    """config ファイルのデフォルト値に CLI 引数を上書きして models dict を返す。
+    models dict の値は {'backend': str, 'model': str | None}。
+    roles が None の場合はすべての既知ロールを対象にする。"""
+    config = _load_config(project_dir)
+    defaults = config.get("models", {})
+
+    target_roles = roles if roles is not None else tuple(_ROLE_FALLBACKS.keys())
+
+    models = {}
+    for role in target_roles:
+        base = _ROLE_FALLBACKS.get(role, {"backend": "gemini", "model": None}).copy()
+        if role in defaults:
+            base.update(defaults[role])
+        if role in cli_overrides and cli_overrides[role] is not None:
+            override = _parse_model_spec(cli_overrides[role])
+            base["backend"] = override["backend"]
+            if override["model"] is not None:
+                base["model"] = override["model"]
+        models[role] = base
+    return models
 
 
 class AirdpOrchestrator:
     def __init__(self, project_dir=".", cycle_id="auto", models=None, start_phase=2, end_phase=5,
                  skip_approval=False):
         self.project_dir = Path(project_dir).resolve()
-        self.models = models or {
-            "orchestrator": "gemini",
-            "researcher": "gemini",
-            "reviewer": "claude",
-            "judge": "claude"
-        }
+        self.models = models or _build_models(self.project_dir, {}, roles=("orchestrator", "researcher", "reviewer", "judge"))
         self.cycle_id = self._resolve_cycle_id(cycle_id)
         self.core = get_core(self.project_dir, self.cycle_id)
         self.start_phase = start_phase
@@ -46,7 +96,9 @@ class AirdpOrchestrator:
         print(f"  Project : {self.core.constants.get('project_info', {}).get('name')}")
         print(f"  Domain  : {self.core.constants.get('project_info', {}).get('domain')}")
         print(f"  Range   : Phase {self.start_phase} to {self.end_phase}")
-        print(f"  Models  : {self.models}")
+        model_summary = {r: f"{v['backend']}:{v['model']}" if v.get('model') else v['backend']
+                         for r, v in self.models.items()}
+        print(f"  Models  : {model_summary}")
         print(f"{'-'*50}\n")
 
         if self.start_phase <= 2 <= self.end_phase:
@@ -272,7 +324,17 @@ class AirdpOrchestrator:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="AIRDP v3.0 Orchestrator")
+    parser = argparse.ArgumentParser(
+        description="AIRDP v3.0 Orchestrator",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Model spec format: backend[:model]\n"
+            "  e.g. gemini                  → use backend default from airdp_config.json\n"
+            "       gemini:gemini-2.5-pro   → override model explicitly\n"
+            "       claude:claude-opus-4-5  → override model explicitly\n"
+            "\nDefaults are loaded from airdp_config.json (project-dir first, then framework dir)."
+        )
+    )
     parser.add_argument("--project-dir", default=".", help="Project root directory")
     parser.add_argument("--cycle-id", default="auto",
                         help="Cycle ID: '01' etc., 'auto'=use latest existing, 'new'=create next")
@@ -280,25 +342,27 @@ def main():
                         help="Phase to start from")
     parser.add_argument("--end", type=int, default=5, choices=[2, 3, 4, 5],
                         help="Phase to end at")
-    parser.add_argument("--orchestrator", default="gemini",
-                        help="AI for orchestration (gemini, claude, copilot, codex)")
-    parser.add_argument("--researcher", default="gemini",
-                        help="AI for execution (gemini, claude, copilot, codex)")
-    parser.add_argument("--reviewer", default="claude",
-                        help="AI for validation (gemini, claude, copilot, codex)")
-    parser.add_argument("--judge", default="claude",
-                        help="AI for judging (gemini, claude, copilot, codex)")
+    parser.add_argument("--orchestrator", default=None,
+                        help="AI for orchestration. Format: backend[:model]  e.g. gemini:gemini-2.5-pro")
+    parser.add_argument("--researcher", default=None,
+                        help="AI for execution. Format: backend[:model]")
+    parser.add_argument("--reviewer", default=None,
+                        help="AI for validation. Format: backend[:model]")
+    parser.add_argument("--judge", default=None,
+                        help="AI for judging. Format: backend[:model]")
     parser.add_argument("--skip-approval", action="store_true",
                         help="Skip human approval gates (for CI/automation)")
 
     args = parser.parse_args()
+    project_dir = Path(args.project_dir).resolve()
 
-    models = {
+    cli_overrides = {
         "orchestrator": args.orchestrator,
         "researcher": args.researcher,
         "reviewer": args.reviewer,
-        "judge": args.judge
+        "judge": args.judge,
     }
+    models = _build_models(project_dir, cli_overrides, roles=("orchestrator", "researcher", "reviewer", "judge"))
 
     orchestrator = AirdpOrchestrator(
         project_dir=args.project_dir,

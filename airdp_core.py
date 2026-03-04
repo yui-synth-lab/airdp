@@ -126,9 +126,16 @@ class AirdpCore:
 
     # ── AI 呼び出し ────────────────────────────────
 
-    def invoke_ai(self, ai_name, prompt, role=None):
-        """AI呼び出し。role を指定するとセッションを引き継ぐ。"""
-        print(f"  [AI: {ai_name}] Invoking...")
+    def invoke_ai(self, ai_spec, prompt, role=None):
+        """AI呼び出し。role を指定するとセッションを引き継ぐ。
+        ai_spec は str ('gemini') または dict {'backend': 'gemini', 'model': 'gemini-2.5-pro'}。"""
+        if isinstance(ai_spec, dict):
+            ai_name = ai_spec["backend"]
+            ai_model = ai_spec.get("model")
+        else:
+            ai_name = ai_spec
+            ai_model = None
+        print(f"  [AI: {ai_name}{':' + ai_model if ai_model else ''}] Invoking...")
 
         # Gemini セッション差分検出用: 呼び出し前のスナップショット
         if ai_name == "gemini" and role and self.load_session_id(role) is None:
@@ -137,7 +144,7 @@ class AirdpCore:
             self._before_gemini_sessions = set()
 
         try:
-            cmd = self._build_cmd(ai_name, prompt, role)
+            cmd = self._build_cmd(ai_name, prompt, role, model=ai_model)
             if cmd is None:
                 print(f"  [SKIP] AI backend {ai_name} not implemented.")
                 return ""
@@ -218,7 +225,7 @@ class AirdpCore:
                     print(f"  [Session] Claude session saved: {preset_sid}")
                     self._claude_preset_session_id = None
 
-            # ログへの記録
+            # ログへの記録（ai_model はこのスコープで参照可能）
             log_path = self.paths["log"]
             log_path.parent.mkdir(parents=True, exist_ok=True)
             with open(log_path, "a", encoding="utf-8") as f:
@@ -238,14 +245,17 @@ class AirdpCore:
             print(f"  [EXCEPTION] Failed to invoke {ai_name}: {e}")
             return ""
 
-    def _build_cmd(self, ai_name, prompt, role):
+    def _build_cmd(self, ai_name, prompt, role, model=None):
         """AIバックエンドとセッション状態に応じてコマンドを組み立てる。
         Gemini はプロンプトを stdin 経由で渡す（Windows の shell=True でも特殊文字が壊れないため）。
-        Claude/Copilot/Codex は -p 引数で渡す。"""
+        Claude/Copilot/Codex は -p 引数で渡す。
+        model が指定された場合は各バックエンドのモデル指定フラグを追加する。"""
         session_id = self.load_session_id(role) if role else None
 
         if ai_name == "gemini":
             base_cmd = ["gemini", "--approval-mode", "yolo"]
+            if model:
+                base_cmd += ["--model", model]
             if session_id:
                 print(f"  [Session] Gemini resume: {session_id}")
                 return base_cmd + ["-r", session_id]
@@ -253,14 +263,15 @@ class AirdpCore:
                 return base_cmd
 
         elif ai_name == "claude":
+            model_flags = ["--model", model] if model else []
             claude_base = ["claude", "-p", prompt,
                            "--allowedTools", "Read,Write,Edit,Bash,Glob,Grep",
-                           "--permission-mode", "bypassPermissions"]
+                           "--permission-mode", "bypassPermissions"] + model_flags
             if session_id:
                 print(f"  [Session] Claude resume: {session_id}")
                 return ["claude", "--resume", session_id, "-p", prompt,
                         "--allowedTools", "Read,Write,Edit,Bash,Glob,Grep",
-                        "--permission-mode", "bypassPermissions"]
+                        "--permission-mode", "bypassPermissions"] + model_flags
             elif role:
                 # 新規セッション: UUIDを事前生成して --session-id で指定
                 new_sid = str(uuid.uuid4())
@@ -270,20 +281,23 @@ class AirdpCore:
                 return claude_base
 
         elif ai_name == "copilot":
+            model_flags = ["--model", model] if model else []
             if session_id:
                 print(f"  [Session] Copilot resume: {session_id}")
-                return ["copilot", "--resume", session_id, "-p", prompt, "--yolo"]
+                return ["copilot", "--resume", session_id, "-p", prompt, "--yolo"] + model_flags
             elif role:
                 # 新規セッション: UUIDを事前生成して --resume で指定
                 new_sid = str(uuid.uuid4())
                 self._copilot_preset_session_id = new_sid
-                return ["copilot", "--resume", new_sid, "-p", prompt, "--yolo"]
+                return ["copilot", "--resume", new_sid, "-p", prompt, "--yolo"] + model_flags
             else:
-                return ["copilot", "-p", prompt, "--yolo"]
+                return ["copilot", "-p", prompt, "--yolo"] + model_flags
 
         elif ai_name == "codex":
             # Codex: PS版同様にプロンプトを positional argument で渡す
             base_flags = ["--dangerously-bypass-approvals-and-sandbox", "--json"]
+            if model:
+                base_flags += ["--model", model]
             if session_id:
                 print(f"  [Session] Codex resume: {session_id}")
                 return ["codex", "exec", "resume", session_id] + base_flags + [prompt]

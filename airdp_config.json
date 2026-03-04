@@ -1,0 +1,8 @@
+{
+  "models": {
+    "orchestrator": { "backend": "gemini", "model": "auto" },
+    "researcher":   { "backend": "gemini", "model": "auto" },
+    "reviewer":     { "backend": "gemini", "model": "auto" },
+    "judge":        { "backend": "gemini", "model": "auto" }
+  }
+}

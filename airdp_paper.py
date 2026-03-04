@@ -5,15 +5,14 @@ import shutil
 import argparse
 from pathlib import Path
 from airdp_core import get_core
+from airdp_orchestrator import _load_config, _parse_model_spec, _build_models
 
 
 class AirdpPaper:
-    def __init__(self, paper_dir, project_dir=".", orchestrator="gemini", writer="gemini", reviewer="claude", max_revisions=5, start_revision=None):
+    def __init__(self, paper_dir, project_dir=".", models=None, max_revisions=5, start_revision=None):
         self.project_dir = Path(project_dir).resolve()
         self.paper_dir = self.project_dir / paper_dir
-        self.orchestrator = orchestrator
-        self.writer = writer
-        self.reviewer = reviewer
+        self.models = models or _build_models(self.project_dir, {})
         self.max_revisions = max_revisions
         self.start_revision = start_revision
         self.core = get_core(self.project_dir)
@@ -40,13 +39,15 @@ class AirdpPaper:
             reports = self._collect_cycle_reports()
             cycle_reports_str = "\n".join(str(p) for p in reports) if reports else "(none)"
 
-            print(f"\n  [Orchestrator: {self.orchestrator}] Generating brief...")
+            orch = self.models["orchestrator"]
+            orch_label = f"{orch['backend']}:{orch['model']}" if orch.get("model") else orch["backend"]
+            print(f"\n  [Orchestrator: {orch_label}] Generating brief...")
             prompt = self.core.expand_prompt("paper_brief.md", {
                 "BRIEF_PATH": brief_path,
                 "SSOT_DIR": self.core.paths["ssot_dir"],
                 "CYCLE_REPORTS": cycle_reports_str
             })
-            self.core.invoke_ai(self.orchestrator, prompt, role="paper_brief")
+            self.core.invoke_ai(orch, prompt, role="paper_brief")
 
             if not brief_path.exists():
                 print(f"  [ERROR] brief.md was not generated: {brief_path}")
@@ -77,7 +78,7 @@ class AirdpPaper:
                         f"Apply the following revision and regenerate brief.md ({brief_path}).\n\n"
                         f"Revision:\n{edit_request}"
                     )
-                    self.core.invoke_ai(self.orchestrator, edit_prompt, role="paper_brief")
+                    self.core.invoke_ai(self.models["orchestrator"], edit_prompt, role="paper_brief")
                     break  # 外側ループに戻って再確認
 
                 elif decision == "stop":
@@ -105,9 +106,10 @@ class AirdpPaper:
         print(f"  AIRDP v3.0 Paper Pipeline")
         print(f"{'='*50}")
         print(f"  Paper Dir   : {self.paper_dir}")
-        print(f"  Orchestrator: {self.orchestrator}")
-        print(f"  Writer      : {self.writer}")
-        print(f"  Reviewer    : {self.reviewer}")
+        def _label(spec): return f"{spec['backend']}:{spec['model']}" if spec.get("model") else spec["backend"]
+        print(f"  Orchestrator: {_label(self.models['orchestrator'])}")
+        print(f"  Writer      : {_label(self.models['writer'])}")
+        print(f"  Reviewer    : {_label(self.models['reviewer'])}")
         print(f"{'-'*50}\n")
 
         brief_path = self.paper_dir / "brief.md"
@@ -172,7 +174,7 @@ class AirdpPaper:
                 "PAPER_DIR": self.paper_dir,
                 "SSOT_DIR": self.core.paths["ssot_dir"]
             })
-            self.core.invoke_ai(self.writer, writer_prompt, role=f"paper_writer_r{revision:02d}")
+            self.core.invoke_ai(self.models["writer"], writer_prompt, role=f"paper_writer_r{revision:02d}")
 
             if not draft_path.exists():
                 # AI が別パスに書いた可能性を検索してリカバリ
@@ -210,7 +212,7 @@ class AirdpPaper:
                 "REVISION": revision,
                 "SSOT_DIR": self.core.paths["ssot_dir"]
             })
-            self.core.invoke_ai(self.reviewer, reviewer_prompt, role=f"paper_reviewer_r{revision:02d}")
+            self.core.invoke_ai(self.models["reviewer"], reviewer_prompt, role=f"paper_reviewer_r{revision:02d}")
 
             if not review_path.exists():
                 # ゼロ埋めなし等の別名パターンに書いたケースを検索
@@ -251,24 +253,40 @@ class AirdpPaper:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="AIRDP v3.0 Paper Pipeline")
+    parser = argparse.ArgumentParser(
+        description="AIRDP v3.0 Paper Pipeline",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Model spec format: backend[:model]\n"
+            "  e.g. gemini                  → use backend default from airdp_config.json\n"
+            "       gemini:gemini-2.5-pro   → override model explicitly\n"
+            "       claude:claude-opus-4-5  → override model explicitly\n"
+            "\nDefaults are loaded from airdp_config.json (project-dir first, then framework dir)."
+        )
+    )
     parser.add_argument("--paper-dir", required=True, help="Directory for the paper (relative to project root)")
     parser.add_argument("--project-dir", default=".", help="Project root directory")
-    parser.add_argument("--orchestrator", default="gemini", help="AI for brief generation")
-    parser.add_argument("--writer", default="gemini")
-    parser.add_argument("--reviewer", default="claude")
+    parser.add_argument("--orchestrator", default=None, help="AI for brief generation. Format: backend[:model]")
+    parser.add_argument("--writer", default=None, help="AI for writing. Format: backend[:model]")
+    parser.add_argument("--reviewer", default=None, help="AI for reviewing. Format: backend[:model]")
     parser.add_argument("--max-revisions", type=int, default=5)
     parser.add_argument("--start-revision", type=int, default=None,
                         help="Revision number to start from (default: auto-detect from existing files)")
 
     args = parser.parse_args()
+    project_dir = Path(args.project_dir).resolve()
+
+    cli_overrides = {
+        "orchestrator": args.orchestrator,
+        "writer": args.writer,
+        "reviewer": args.reviewer,
+    }
+    models = _build_models(project_dir, cli_overrides, roles=("orchestrator", "writer", "reviewer"))
 
     pipeline = AirdpPaper(
         paper_dir=args.paper_dir,
         project_dir=args.project_dir,
-        orchestrator=args.orchestrator,
-        writer=args.writer,
-        reviewer=args.reviewer,
+        models=models,
         max_revisions=args.max_revisions,
         start_revision=args.start_revision
     )
